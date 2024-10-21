@@ -109,5 +109,5 @@ def main():
             st.warning("Please enter some English text to translate.")
 
 # Corrected block for running the app
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
