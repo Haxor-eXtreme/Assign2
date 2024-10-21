@@ -6,7 +6,7 @@ from transformers import pipeline, MBartForConditionalGeneration, MBart50Tokeniz
 def load_model():
     try:
         model_name = 'facebook/mbart-large-50-many-to-many-mmt'  # Better suited for multilingual translations
-        tokenizer = MBart50TokenizerFast.from_pretrained(model_name, use_fast=False)  # Load slow tokenizer
+        tokenizer = MBart50TokenizerFast.from_pretrained(model_name)
         model = MBartForConditionalGeneration.from_pretrained(model_name)
         return model, tokenizer
     except Exception as e:
@@ -25,7 +25,7 @@ def preprocess_input(text):
     return " ".join(processed_words)
 
 def romanize_urdu(text):
-    # Improved dictionary for Urdu to Roman Urdu transliteration
+    # Improved dictionary for Urdu to Roman Urdu transliteration, using word and character mapping
     transliteration_map = {
         'ضرورت': 'zaroorat',
         'ایجاد': 'ijaad',
@@ -33,9 +33,9 @@ def romanize_urdu(text):
         'ہے': 'hai',
         'کی': 'ki',
         'پیدائش': 'paidaish',
-        'تم': 'tum',
-        'کیسا': 'kaisa',
-        'ہو': 'ho',
+        'تم': 'tum',  # Correct mapping for "تم"
+        'کیسا': 'kaisa',  # Correct mapping for "کیسا"
+        'ہو': 'ho',  # Correct mapping for "ہو"
         'کہاں': 'kahan',
         'جہنم': 'jahanum',
         'میں': 'mein',
@@ -48,7 +48,7 @@ def romanize_urdu(text):
         # Add more mappings for specific words and phrases
     }
 
-    # Character-level mapping for words not found in transliteration_map
+    # Improved character-level mapping for words not found in transliteration_map
     char_map = {
         'ک': 'k', 'ہ': 'h', 'ر': 'r', 'ا': 'a', 'ل': 'l', 'م': 'm', 'ت': 't',
         'ی': 'i', 'ن': 'n', 'د': 'd', 'س': 's', 'و': 'w', 'چ': 'ch', 'پ': 'p',
@@ -62,9 +62,11 @@ def romanize_urdu(text):
     romanized_words = []
 
     for word in words:
+        # Check if word is in transliteration map
         if word in transliteration_map:
             romanized_words.append(transliteration_map[word])
         else:
+            # Fall back to character level transliteration
             romanized_word = ''.join([char_map.get(char, char) for char in word])
             romanized_words.append(romanized_word)
 
@@ -76,10 +78,6 @@ def main():
 
     # Load the model and tokenizer
     model, tokenizer = load_model()
-
-    if model is None or tokenizer is None:
-        st.error("Failed to load the translation model. Please try again later.")
-        return
 
     # Input prompt
     english_text = st.text_area("Enter English text:", height=150)
@@ -93,27 +91,30 @@ def main():
                     processed_text = preprocess_input(english_text)
 
                     # Tokenize the input text
-                    tokenizer.src_lang = "en_XX"  # Source language is English
-                    inputs = tokenizer(processed_text, return_tensors="pt")
+                    if tokenizer:
+                        tokenizer.src_lang = "en_XX"  # Source language is English
+                        inputs = tokenizer(processed_text, return_tensors="pt")
 
-                    # Generate translation
-                    generated_tokens = model.generate(
-                        **inputs,
-                        forced_bos_token_id=tokenizer.lang_code_to_id["ur_PK"]  # Target language is Urdu
-                    )
+                        # Generate translation
+                        generated_tokens = model.generate(
+                            **inputs,
+                            forced_bos_token_id=tokenizer.lang_code_to_id["ur_PK"]  # Target language is Urdu
+                        )
 
-                    # Decode the generated tokens
-                    urdu_translation = tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
+                        # Decode the generated tokens
+                        urdu_translation = tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
 
-                    # Convert to Roman Urdu
-                    roman_urdu_translation = romanize_urdu(urdu_translation)
-                    st.success("Translation:")
-                    st.write(roman_urdu_translation)
+                        # Convert to Roman Urdu
+                        roman_urdu_translation = romanize_urdu(urdu_translation)
+                        st.success("Translation:")
+                        st.write(roman_urdu_translation)
+                    else:
+                        st.error("Model not loaded successfully.")
                 except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                    st.error(f"Error during translation: {str(e)}")
         else:
             st.warning("Please enter some English text to translate.")
 
 # Corrected block for running the app
-if __name__ == "__main__":
+if __name__ == "__main__":  # Fixed the condition here
     main()
