@@ -4,10 +4,14 @@ from transformers import pipeline, MBartForConditionalGeneration, MBart50Tokeniz
 # Load the translation pipeline (using mBART for multilingual translation)
 @st.cache_resource
 def load_model():
-    model_name = 'facebook/mbart-large-50-many-to-many-mmt'  # Better suited for multilingual translations
-    tokenizer = MBart50TokenizerFast.from_pretrained(model_name)
-    model = MBartForConditionalGeneration.from_pretrained(model_name)
-    return model, tokenizer
+    try:
+        model_name = 'facebook/mbart-large-50-many-to-many-mmt'  # Better suited for multilingual translations
+        tokenizer = MBart50TokenizerFast.from_pretrained(model_name)
+        model = MBartForConditionalGeneration.from_pretrained(model_name)
+        return model, tokenizer
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None, None
 
 def preprocess_input(text):
     # Simple preprocessing to replace informal abbreviations
@@ -87,27 +91,30 @@ def main():
                     processed_text = preprocess_input(english_text)
 
                     # Tokenize the input text
-                    tokenizer.src_lang = "en_XX"  # Source language is English
-                    inputs = tokenizer(processed_text, return_tensors="pt")
+                    if tokenizer:
+                        tokenizer.src_lang = "en_XX"  # Source language is English
+                        inputs = tokenizer(processed_text, return_tensors="pt")
 
-                    # Generate translation
-                    generated_tokens = model.generate(
-                        **inputs,
-                        forced_bos_token_id=tokenizer.lang_code_to_id["ur_PK"]  # Target language is Urdu
-                    )
+                        # Generate translation
+                        generated_tokens = model.generate(
+                            **inputs,
+                            forced_bos_token_id=tokenizer.lang_code_to_id["ur_PK"]  # Target language is Urdu
+                        )
 
-                    # Decode the generated tokens
-                    urdu_translation = tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
+                        # Decode the generated tokens
+                        urdu_translation = tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
 
-                    # Convert to Roman Urdu
-                    roman_urdu_translation = romanize_urdu(urdu_translation)
-                    st.success("Translation:")
-                    st.write(roman_urdu_translation)
+                        # Convert to Roman Urdu
+                        roman_urdu_translation = romanize_urdu(urdu_translation)
+                        st.success("Translation:")
+                        st.write(roman_urdu_translation)
+                    else:
+                        st.error("Model not loaded successfully.")
                 except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                    st.error(f"Error during translation: {str(e)}")
         else:
             st.warning("Please enter some English text to translate.")
 
 # Corrected block for running the app
-if __name__ == "__main__":
+if __name__ == "__main__":  # Fixed the condition here
     main()
